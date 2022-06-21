@@ -294,19 +294,14 @@ MARKED-STRING is the string returned by `lsp-ui-sideline--extract-info'."
            marked-string)
          (replace-regexp-in-string "[\n\r\t ]+" " "))))
 
-(defun lsp-ui-sideline--align (&rest lengths)
-  "Align sideline string by LENGTHS from the right of the window."
-  (+ (apply '+ lengths)
-     (if (display-graphic-p) 1 2)))
-
-(defun lsp-ui-sideline--compute-height ()
-  "Return a fixed size for text in sideline."
-  (if (null text-scale-mode-remapping)
-      '(height 1)
-    ;; Readjust height when text-scale-mode is used
-    (list 'height
-          (/ 1 (or (plist-get (cdar text-scale-mode-remapping) :height)
-                   1)))))
+(defun lsp-ui-sideline--compute-text-width (text-with-properties &optional window)
+  (let ((window (or window (selected-window)))
+        (remapping-alist face-remapping-alist))
+    (with-temp-buffer
+      (setq-local face-remapping-alist remapping-alist)
+      (set-window-buffer window (current-buffer))
+      (insert text-with-properties)
+      (car (window-text-pixel-size)))))
 
 (defun lsp-ui-sideline--make-display-string (info symbol current)
   "Make final string to display in buffer.
@@ -321,8 +316,8 @@ CURRENT is non-nil when the point is on the symbol."
          (margin (lsp-ui-sideline--margin-width)))
     (add-face-text-property 0 len 'lsp-ui-sideline-global nil str)
     (concat
-     (propertize " " 'display `(space :align-to (- right-fringe ,(lsp-ui-sideline--align len margin))))
-     (propertize str 'display (lsp-ui-sideline--compute-height)))))
+     (propertize " " 'display `(space :align-to (- right-fringe (,(lsp-ui-sideline--compute-text-width (concat " " str))))))
+     str)))
 
 (defun lsp-ui-sideline--check-duplicate (symbol info)
   "Check if there's already a SYMBOL containing INFO, unless `lsp-ui-sideline-ignore-duplicate'
@@ -472,8 +467,8 @@ Push sideline overlays on `lsp-ui-sideline--ovs'."
                  (msg (progn (add-face-text-property 0 len 'lsp-ui-sideline-global nil msg)
                              (add-face-text-property 0 len face nil msg)
                              msg))
-                 (string (concat (propertize " " 'display `(space :align-to (- right-fringe ,(lsp-ui-sideline--align len margin))))
-                                 (propertize msg 'display (lsp-ui-sideline--compute-height))))
+                 (string (concat (propertize " " 'display `(space :align-to (- right-fringe (,(lsp-ui-sideline--compute-text-width (concat " " msg))))))
+                                 msg))
                  (pos-ov (lsp-ui-sideline--find-line len bol eol t offset))
                  (ov (and pos-ov (make-overlay (car pos-ov) (car pos-ov)))))
             (when pos-ov
@@ -545,9 +540,9 @@ Argument HEIGHT is an actual image height in pixel."
                             (add-face-text-property 0 len 'lsp-ui-sideline-code-action nil title)
                             (add-text-properties 0 len `(keymap ,keymap mouse-face highlight) title)
                             title))
-              (string (concat (propertize " " 'display `(space :align-to (- right-fringe ,(lsp-ui-sideline--align (+ len (length image)) margin))))
+              (string (concat (propertize " " 'display `(space :align-to (- right-fringe (,(lsp-ui-sideline--compute-text-width (concat " " image title))))))
                               image
-                              (propertize title 'display (lsp-ui-sideline--compute-height))))
+                              title))
               (pos-ov (lsp-ui-sideline--find-line (+ 1 (length title) (length image)) bol eol t))
               (ov (and pos-ov (make-overlay (car pos-ov) (car pos-ov)))))
         (when pos-ov
